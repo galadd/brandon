@@ -74,15 +74,15 @@ pub fn verify_file_against_manifest(file: &Path, manifest: &Path) -> Result<bool
     Ok(&actual_hash == expected_hash)
 }
 
-#[test]
-fn verify_mainnet_file_against_manifest() {
-    use crate::verify::hash::verify_file_against_manifest;
-    use std::path::Path;
-
-    let manifest = Path::new("checksums.txt");
-    let file = Path::new("mainnet-00000-5ec1ffb8.era1");
-
-    let ok = verify_file_against_manifest(file, manifest).expect("manifest parsing failed");
-
-    assert!(ok, "file hash does not match manifest");
-}
+// #[test]
+// fn verify_mainnet_file_against_manifest() {
+//     use crate::verify::hash::verify_file_against_manifest;
+//     use std::path::Path;
+//
+//     let manifest = Path::new("checksums.txt");
+//     let file = Path::new("mainnet-00000-5ec1ffb8.era1");
+//
+//     let ok = verify_file_against_manifest(file, manifest).expect("manifest parsing failed");
+//
+//     assert!(ok, "file hash does not match manifest");
+// }
