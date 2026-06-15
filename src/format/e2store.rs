@@ -9,14 +9,10 @@
 //! The first entry must be a Version entry (type 0x6532, length 0).
 
 use crate::error::E2StoreError;
-use std::io::{self, Read};
-
-// ── Type constants ──────────────────────────────────────────────────
+use std::io::{self, Read, Seek};
 
 /// Version entry — must be the first entry in every e2store file.
 pub const TYPE_VERSION: [u8; 2] = [0x65, 0x32];
-
-// ── Header ──────────────────────────────────────────────────────────
 
 /// e2store 8-byte entry header.
 ///
@@ -73,8 +69,6 @@ impl Header {
     }
 }
 
-// ── Entry ───────────────────────────────────────────────────────────
-
 /// A parsed e2store entry: header + owned data.
 #[derive(Debug, Clone)]
 pub struct Entry {
@@ -95,8 +89,6 @@ impl Entry {
         Self::new(TYPE_VERSION, Vec::new())
     }
 }
-
-// ── Streaming reader ────────────────────────────────────────────────
 
 /// Reads e2store entries from any `Read` source.
 pub struct E2StoreReader<R> {
@@ -150,6 +142,30 @@ impl<R: Read> E2StoreReader<R> {
 
     pub fn into_inner(self) -> R {
         self.inner
+    }
+}
+
+impl<R: Read + Seek> E2StoreReader<R> {
+    /// Read only the header of the next entry, seeking past the data.
+    ///
+    /// Use this for scanning file structure without loading entry payloads
+    /// into memory (e.g., finding the block index).
+    ///
+    /// Returns `Ok(None)` at EOF.
+    pub fn next_header_only(&mut self) -> Result<Option<Header>, io::Error> {
+        let mut hdr_buf = [0u8; Header::SIZE];
+        match self.inner.read_exact(&mut hdr_buf) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e),
+        }
+        let header = Header::decode(&hdr_buf)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        if header.length > 0 {
+            self.inner
+                .seek(io::SeekFrom::Current(header.length as i64))?;
+        }
+        Ok(Some(header))
     }
 }
 
