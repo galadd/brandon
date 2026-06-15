@@ -14,3 +14,8 @@ pub mod verify;
 pub mod convert;
 
 pub mod fs;
+
+pub use read::{
+    Block, Era1Block, EraBlock, EraBlockReader, EraFormat, EraRandomReader, EraReader,
+    SlotLookupError, TypedEntry,
+};
