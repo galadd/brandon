@@ -117,7 +117,7 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
 
     // Index consistency checks
     if let Some(idx) = block_index {
-        let indexed_blocks = idx.offsets.len().saturating_sub(1);
+        let indexed_blocks = idx.offsets.iter().filter(|&&o| o != 0).count();
 
         if indexed_blocks != block_entries {
             result.valid = false;
