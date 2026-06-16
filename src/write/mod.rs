@@ -76,7 +76,7 @@ impl<W: Write> E2StoreWriter<W> {
 /// let compressed = {
 ///     let mut enc = FrameEncoder::new(Vec::new());
 ///     enc.write_all(&ssz_bytes).unwrap();
-///     enc.finish().unwrap();
+///     enc.into_inner().unwrap();
 /// };
 ///
 /// let mut builder = EraBuilder::new();
