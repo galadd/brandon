@@ -10,7 +10,10 @@ use crate::format::{
         SlotIndex, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_BEACON_STATE,
         TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_STATE_INDEX, decompress_entry,
     },
-    era1::{TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS, TYPE_TOTAL_DIFFICULTY},
+    era1::{
+        TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS,
+        TYPE_TOTAL_DIFFICULTY,
+    },
 };
 
 pub struct VerificationResult {
@@ -103,6 +106,15 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 block_entries += 1;
             }
             TYPE_BLOCK_BODY | TYPE_RECEIPTS | TYPE_TOTAL_DIFFICULTY => {}
+            TYPE_BLOCK_ACCUMULATOR => {
+                if entry.data.len() != 32 {
+                    result.valid = false;
+                    result.errors.push(format!(
+                        "block accumulater must be 32 bytes, got {}",
+                        entry.data.len()
+                    ));
+                }
+            }
 
             _ => {
                 result.warnings.push(format!(
@@ -117,13 +129,11 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
 
     // Index consistency checks
     if let Some(idx) = block_index {
-        let indexed_blocks = idx.offsets.iter().filter(|&&o| o != 0).count();
-
-        if indexed_blocks != block_entries {
+        if idx.count as usize != block_entries {
             result.valid = false;
             result.errors.push(format!(
                 "block index count mismatch: index={}, entries={}",
-                indexed_blocks, block_entries
+                idx.count, block_entries
             ));
         }
     } else {
