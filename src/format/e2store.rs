@@ -143,6 +143,40 @@ impl<R: Read> E2StoreReader<R> {
     pub fn into_inner(self) -> R {
         self.inner
     }
+
+    /// Read only the header of the next entry, reading and discarding the payload.
+    ///
+    /// Unlike [`next_header_only`](Self::next_header_only) this does **not**
+    /// require `Seek`, making it safe to use on pipes and stdin. The trade-off
+    /// is that payload bytes are read from the stream and thrown away, so this
+    /// is slower than the seek-based variant for large files.
+    pub fn next_header_skip(&mut self) -> Result<Option<Header>, io::Error> {
+        let mut hdr_buf = [0u8; Header::SIZE];
+        match self.inner.read_exact(&mut hdr_buf) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e),
+        }
+        let header = Header::decode(&hdr_buf)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        if header.length > 0 {
+            let mut discard = vec![0u8; header.length as usize];
+            self.inner.read_exact(&mut discard)?;
+        }
+        Ok(Some(header))
+    }
+
+    /// Scan all entry headers from a non-seekable stream.
+    ///
+    /// Slower than [`scan_all_headers`](Self::scan_all_headers) because
+    /// payload data is read and discarded, but works on pipes/stdin.
+    pub fn scan_all_headers_skip(&mut self) -> Result<Vec<Header>, io::Error> {
+        let mut headers = Vec::new();
+        while let Some(header) = self.next_header_skip()? {
+            headers.push(header);
+        }
+        Ok(headers)
+    }
 }
 
 impl<R: Read + Seek> E2StoreReader<R> {
@@ -166,6 +200,15 @@ impl<R: Read + Seek> E2StoreReader<R> {
                 .seek(io::SeekFrom::Current(header.length as i64))?;
         }
         Ok(Some(header))
+    }
+
+    /// Scan all entry headers in the file, seeking past data without reading it.
+    pub fn scan_all_headers(&mut self) -> Result<Vec<Header>, io::Error> {
+        let mut headers = Vec::new();
+        while let Some(header) = self.next_header_only()? {
+            headers.push(header);
+        }
+        Ok(headers)
     }
 }
 
