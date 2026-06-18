@@ -178,7 +178,7 @@ impl EraBuilder {
                 }
             }
 
-            SlotIndex::new(min_slot, offsets)
+            SlotIndex::with_count(min_slot, offsets, self.blocks.len() as u64)
         };
 
         // Advance past the block index entry itself
