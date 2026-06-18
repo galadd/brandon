@@ -748,6 +748,68 @@ impl<R: Read + Seek> EraRandomReader<R> {
     pub fn into_inner(self) -> R {
         self.reader
     }
+
+    /// Read a full ERA1 block ath the given slot, incl. body, receipts,
+    /// and total difficulty.
+    ///
+    /// Unlike [`read_block_at_slot`](Self::read_block_at_slot) which only
+    /// returns the header, this seeks to the header position, then reads
+    /// subsequent body/receipts/td entries until a non-block entry is hit.
+    ///
+    /// Returns `Ok(None)` if the slot is empty (skipped slot).
+    pub fn read_full_era1_block_at_slot(&mut self, slot: u64) -> Result<Option<Era1Block>, Error> {
+        let offset = match self.slot_to_offset(slot) {
+            Ok(off) => off,
+            Err(SlotLookupError::EmptySlot) => return Ok(None),
+            Err(e) => {
+                return Err(Error::E2Store(E2StoreError::InvalidEra(e.to_string())));
+            }
+        };
+
+        self.reader
+            .seek(std::io::SeekFrom::Start(offset))
+            .map_err(Error::Io)?;
+
+        let mut e2s = E2StoreReader::new(&mut self.reader);
+        let first = e2s
+            .next_entry()
+            .map_err(Error::Io)?
+            .ok_or_else(|| E2StoreError::InvalidEra("unexpected EOF at indexed position".into()))?;
+
+        if first.header.typ != TYPE_COMPRESSED_HEADER {
+            return Err(E2StoreError::InvalidEra(format!(
+                "expected header entry at slot {}, got {:02x}{:02x}",
+                slot, first.header.typ[0], first.header.typ[1]
+            ))
+            .into());
+        }
+
+        let header = decompress_entry(&first.data)?;
+
+        let mut body = Vec::new();
+        let mut receipts = Vec::new();
+        let mut total_difficulty = U256::zero();
+
+        while let Some(entry) = e2s.next_entry().map_err(Error::Io)? {
+            match entry.header.typ {
+                TYPE_BLOCK_BODY => body = entry.data,
+                TYPE_RECEIPTS => receipts = entry.data,
+                TYPE_TOTAL_DIFFICULTY => {
+                    if entry.data.len() == 32 {
+                        total_difficulty = U256(entry.data.try_into().unwrap());
+                    }
+                }
+                _ => break, // next block, index, or unknown - stop
+            }
+        }
+
+        Ok(Some(Era1Block {
+            header,
+            body,
+            receipts,
+            total_difficulty,
+        }))
+    }
 }
 
 #[cfg(test)]
