@@ -119,9 +119,6 @@ impl EraBuilder {
     }
 
     /// Set the compressed beacon state and its slot.
-    ///
-    /// For ERA files, this is the boundary state at the end of the era,
-    /// typically at slot `starting_slot + SLOTS_PER_HISTORICAL_ROOT`.
     pub fn set_state(&mut self, slot: u64, compressed_state: Vec<u8>) {
         self.state = Some((slot, compressed_state));
     }
@@ -178,7 +175,7 @@ impl EraBuilder {
                 }
             }
 
-            SlotIndex::with_count(min_slot, offsets, self.blocks.len() as u64)
+            SlotIndex::new(min_slot, offsets)
         };
 
         // Advance past the block index entry itself
