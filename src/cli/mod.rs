@@ -1,6 +1,7 @@
 //! Command-line interface for the Brandon ERA toolkit.
 
 mod build;
+mod convert;
 mod info;
 mod read;
 mod verify;
@@ -20,6 +21,8 @@ use brandon::format::{
     },
 };
 use clap::{Parser, Subcommand};
+
+use crate::cli::convert::ConvertCommand;
 
 /// Standalone toolkit for Ethereum ERA/ERA1 archive files.
 #[derive(Parser)]
@@ -91,6 +94,11 @@ pub enum Command {
         #[arg(short, long)]
         output: String,
     },
+    /// Transform and restructure ERA/ERA1 files.
+    Convert {
+        #[command(subcommand)]
+        command: ConvertCommand,
+    },
 }
 
 pub fn run() -> anyhow::Result<()> {
@@ -124,6 +132,7 @@ pub fn run() -> anyhow::Result<()> {
             state_slot,
             output,
         } => build::run(&blocks_dir, state.as_deref(), state_slot, &output),
+        Command::Convert { command } => convert::run(command),
     }
 }
 
@@ -164,12 +173,12 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-/// Count occurences of each entry type from a header hist.
+/// Count occurrences of each entry type from a header list.
 pub fn count_entry_types(headers: &[brandon::format::e2store::Header]) -> BTreeMap<String, usize> {
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
     for h in headers {
         if h.is_version() {
-            continue; // skip version in breakson
+            continue; // skip version in breakdown
         }
         let name = entry_type_name(&h.typ).to_string();
         *counts.entry(name).or_insert(0) += 1;
