@@ -560,7 +560,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
         let first = e2s
             .next_entry()
             .map_err(Error::Io)?
-            .ok_or_else(|| E2StoreError::MissingVersion)?;
+            .ok_or(E2StoreError::MissingVersion)?;
         if !first.header.is_version() {
             return Err(E2StoreError::MissingVersion.into());
         }
@@ -729,7 +729,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
         let first = e2s
             .next_entry()
             .map_err(Error::Io)?
-            .ok_or_else(|| E2StoreError::MissingVersion)?;
+            .ok_or(E2StoreError::MissingVersion)?;
         if !first.header.is_version() {
             return Err(E2StoreError::MissingVersion.into());
         }

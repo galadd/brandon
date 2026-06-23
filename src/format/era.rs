@@ -67,7 +67,7 @@ impl SlotIndex {
         // 8 bytes starting_slot
         // N * 8 bytes offsets
         // 8 bytes count
-        if data.len() < 16 || (data.len() - 16) % 8 != 0 {
+        if data.len() < 16 || !(data.len() - 16).is_multiple_of(8) {
             return Err(format!("invalid slot index data length: {}", data.len()));
         }
 

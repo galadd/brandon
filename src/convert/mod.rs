@@ -46,7 +46,7 @@ pub mod strip;
 
 use std::io::{Read, Seek, Write};
 
-use crate::{error::Error, write::EraBuilder, Era1Block, EraBlockReader, EraRandomReader};
+use crate::{Era1Block, EraBlockReader, EraRandomReader, error::Error, write::EraBuilder};
 
 /// Converts a stream of ERA1 blocks into an ERA file using a custom synthesizer.
 ///
@@ -100,7 +100,7 @@ where
             let slot = block_slots
                 .get(slot_idx)
                 .copied()
-                .unwrap_or_else(|| slot_idx as u64);
+                .unwrap_or(slot_idx as u64);
 
             ssz_buf.clear();
             synthesizer(&era1, &mut ssz_buf)?;

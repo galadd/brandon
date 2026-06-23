@@ -22,7 +22,7 @@ use brandon::format::{
 };
 use clap::{Parser, Subcommand};
 
-use crate::cli::convert::ConvertCommand;
+use crate::cli::{convert::ConvertCommand, read::ReadArgs};
 
 /// Standalone toolkit for Ethereum ERA/ERA1 archive files.
 #[derive(Parser)]
@@ -53,32 +53,7 @@ pub enum Command {
         manifest: Option<String>,
     },
     /// Read blocks from an ERA/ERA1 file.
-    Read {
-        /// Path to an ERA or ERA1 file.
-        file: String,
-        /// Read block at specific slot number.
-        #[arg(long, conflicts_with = "all")]
-        slot: Option<u64>,
-        /// Read all blocks (streams from start to end).
-        #[arg(long, conflicts_with = "slot")]
-        all: bool,
-        /// Limit output to the first N blocks.
-        #[arg(long, conflicts_with = "slot")]
-        count: Option<usize>,
-        /// Also read and output the beacon state (ERA files only).
-        #[arg(long)]
-        state: bool,
-        /// Output format: hex (summary), raw (bytes), json.
-        #[arg(long, default_value = "hex", value_parser = ["hex", "raw","json"])]
-        format: String,
-        /// Write output to a file instead of stdout.
-        #[arg(short, long)]
-        output: Option<String>,
-        /// Write each block to a separate file in this directory.
-        /// Files are named `{slot}.raw`. State is written as `state.raw`.
-        #[arg(long, conflicts_with = "slot")]
-        output_dir: Option<String>,
-    },
+    Read(ReadArgs),
     /// Build an ERA file from compressed block data.
     Build {
         /// Directory containing `{slot}.snappy` files (compressed block payloads).
@@ -107,25 +82,7 @@ pub fn run() -> anyhow::Result<()> {
     match args.command {
         Command::Info { file } => info::run(&file, args.json),
         Command::Verify { file, manifest } => verify::run(&file, manifest.as_deref(), args.json),
-        Command::Read {
-            file,
-            slot,
-            all,
-            count,
-            state,
-            format,
-            output,
-            output_dir,
-        } => read::run(
-            &file,
-            slot,
-            all,
-            count,
-            state,
-            &format,
-            output.as_deref(),
-            output_dir.as_deref(),
-        ),
+        Command::Read(args) => read::run(args),
         Command::Build {
             blocks_dir,
             state,

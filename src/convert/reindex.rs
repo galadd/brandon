@@ -79,10 +79,7 @@ where
 
         match entry.header.typ {
             TYPE_COMPRESSED_SIGNED_BEACON_BLOCK | TYPE_COMPRESSED_HEADER => {
-                let slot = block_slots
-                    .get(block_i)
-                    .copied()
-                    .unwrap_or_else(|| block_i as u64);
+                let slot = block_slots.get(block_i).copied().unwrap_or(block_i as u64);
                 out_block_slots.push(slot);
                 out_block_positions.push(pos);
                 block_i += 1;

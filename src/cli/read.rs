@@ -89,27 +89,63 @@ fn write_full_era1_raw(w: &mut dyn Write, block: &brandon::read::Era1Block) -> a
     Ok(())
 }
 
-pub fn run(
-    path: &str,
-    slot: Option<u64>,
-    all: bool,
-    count: Option<usize>,
-    state: bool,
-    format: &str,
-    output_file: Option<&str>,
-    output_dir: Option<&str>,
-) -> anyhow::Result<()> {
-    // Validate flag combinations
-    if slot.is_none() && !all && count.is_none() {
-        // Default: read all
-        return run_stream(path, None, state, format, output_file, output_dir);
+#[derive(clap::Args)]
+pub struct ReadArgs {
+    /// Path to an ERA or ERA1 file.
+    pub file: String,
+
+    #[arg(long, conflicts_with = "all")]
+    pub slot: Option<u64>,
+
+    #[arg(long, conflicts_with = "slot")]
+    pub all: bool,
+
+    #[arg(long, conflicts_with = "slot")]
+    pub count: Option<usize>,
+
+    #[arg(long)]
+    pub state: bool,
+
+    #[arg(long, default_value = "hex", value_parser = ["hex", "raw", "json"])]
+    pub format: String,
+
+    #[arg(short, long)]
+    pub output: Option<String>,
+
+    #[arg(long, conflicts_with = "slot")]
+    pub output_dir: Option<String>,
+}
+
+pub fn run(args: ReadArgs) -> anyhow::Result<()> {
+    if args.slot.is_none() && !args.all && args.count.is_none() {
+        return run_stream(
+            &args.file,
+            None,
+            args.state,
+            &args.format,
+            args.output.as_deref(),
+            args.output_dir.as_deref(),
+        );
     }
 
-    if let Some(s) = slot {
-        return run_slot(path, s, state, format, output_file);
+    if let Some(slot) = args.slot {
+        return run_slot(
+            &args.file,
+            slot,
+            args.state,
+            &args.format,
+            args.output.as_deref(),
+        );
     }
 
-    run_stream(path, count, state, format, output_file, output_dir)
+    run_stream(
+        &args.file,
+        args.count,
+        args.state,
+        &args.format,
+        args.output.as_deref(),
+        args.output_dir.as_deref(),
+    )
 }
 
 /// Read a single block by slot using random access.
@@ -223,10 +259,10 @@ fn run_stream(
     }
 
     while let Some(block) = reader.next_block()? {
-        if let Some(limit) = limit {
-            if blocks.len() >= limit {
-                break;
-            }
+        if let Some(limit) = limit
+            && blocks.len() >= limit
+        {
+            break;
         }
 
         match format {

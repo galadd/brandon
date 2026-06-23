@@ -74,7 +74,7 @@ where
             let slot = block_slots
                 .get(block_idx)
                 .copied()
-                .unwrap_or_else(|| block_idx as u64);
+                .unwrap_or(block_idx as u64);
 
             let path = dir.join(format!("{slot}.snappy"));
             let file = File::create(&path).map_err(Error::Io)?;

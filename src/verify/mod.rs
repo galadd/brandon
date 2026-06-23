@@ -211,15 +211,15 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 }
 
                 // Flush previous group
-                if let Some(group) = era1_group.take() {
-                    if !group.is_complete() {
-                        result.valid = false;
-                        result.errors.push(format!(
-                            "entry {i}: incomplete ERA1 block starting at entry {} (missing: {})",
-                            group.header_idx,
-                            group.missing_parts()
-                        ));
-                    }
+                if let Some(group) = era1_group.take()
+                    && !group.is_complete()
+                {
+                    result.valid = false;
+                    result.errors.push(format!(
+                        "entry {i}: incomplete ERA1 block starting at entry {} (missing: {})",
+                        group.header_idx,
+                        group.missing_parts()
+                    ));
                 }
 
                 block_count += 1;
@@ -299,15 +299,15 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
     }
 
     // Flush final ERA1 group
-    if let Some(group) = era1_group {
-        if !group.is_complete() {
-            result.valid = false;
-            result.errors.push(format!(
-                "incomplete final ERA1 block starting at entry {} (missing: {})",
-                group.header_idx,
-                group.missing_parts()
-            ));
-        }
+    if let Some(group) = era1_group
+        && !group.is_complete()
+    {
+        result.valid = false;
+        result.errors.push(format!(
+            "incomplete final ERA1 block starting at entry {} (missing: {})",
+            group.header_idx,
+            group.missing_parts()
+        ));
     }
 
     result.format = detected_format.map(String::from);
