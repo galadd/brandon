@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs};
 use anyhow::{Context, bail};
 use brandon::{
     EraRandomReader,
-    format::{e2store::E2StoreReader, era::TYPE_STATE_INDEX},
+    format::{e2store::E2StoreReader, era::TYPE_SLOT_INDEX},
 };
 use serde::Serialize;
 
@@ -106,7 +106,7 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
         .unwrap_or(0);
 
     // State present = state index entry exists
-    let state_present = data_headers.iter().any(|h| h.typ == TYPE_STATE_INDEX);
+    let state_present = data_headers.iter().any(|h| h.typ == TYPE_SLOT_INDEX);
 
     let result = InfoResult {
         format: format_str,

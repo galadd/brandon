@@ -100,7 +100,7 @@ mod tests {
     use crate::{
         format::{
             Entry,
-            era::{SlotIndex, TYPE_BLOCK_INDEX},
+            era::{SlotIndex, TYPE_SLOT_INDEX},
         },
         write::E2StoreWriter,
     };
@@ -127,7 +127,7 @@ mod tests {
             .unwrap();
 
         let idx = SlotIndex::with_count(100, vec![-8i64, 0, 0, 0, 0, -8i64], 2);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         let count = split_blocks(Cursor::new(buf), dir.path()).unwrap();
@@ -149,7 +149,7 @@ mod tests {
         w.write_entry(&Entry::new(TYPE_COMPRESSED_HEADER, payload.clone()))
             .unwrap();
         let idx = SlotIndex::with_count(42, vec![-8164], 1);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         split_blocks(Cursor::new(buf), dir.path()).unwrap();
@@ -166,7 +166,7 @@ mod tests {
         let mut w = E2StoreWriter::new(&mut buf);
         w.write_entry(&Entry::version()).unwrap();
         let idx = crate::format::era::SlotIndex::new(0, vec![]);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         let count = split_blocks(Cursor::new(buf), dir.path()).unwrap();

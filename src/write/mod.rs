@@ -207,10 +207,10 @@ impl EraBuilder {
             ))?;
         }
 
-        writer.write_entry(&Entry::new(TYPE_BLOCK_INDEX, block_index.encode()))?;
+        writer.write_entry(&Entry::new(TYPE_SLOT_INDEX, block_index.encode()))?;
 
         if let Some(state_idx) = &state_index {
-            writer.write_entry(&Entry::new(TYPE_STATE_INDEX, state_idx.encode()))?;
+            writer.write_entry(&Entry::new(TYPE_SLOT_INDEX, state_idx.encode()))?;
         }
 
         Ok(())
@@ -290,7 +290,7 @@ mod tests {
         let entries = reader.read_all().unwrap();
         assert_eq!(entries.len(), 2); // version + empty block index
         assert!(entries[0].header.is_version());
-        assert_eq!(entries[1].header.typ, TYPE_BLOCK_INDEX);
+        assert_eq!(entries[1].header.typ, TYPE_SLOT_INDEX);
     }
 
     #[test]
@@ -406,7 +406,7 @@ mod tests {
         let entries = E2StoreReader::new(Cursor::new(&buf)).read_all().unwrap();
 
         let last = entries.last().unwrap();
-        assert_eq!(last.header.typ, TYPE_STATE_INDEX);
+        assert_eq!(last.header.typ, TYPE_SLOT_INDEX);
 
         let idx = SlotIndex::decode(&last.data).unwrap();
         assert_eq!(idx.starting_slot, 99999);
@@ -428,7 +428,7 @@ mod tests {
 
         let state_idx_entry = entries
             .iter()
-            .find(|e| e.header.typ == TYPE_STATE_INDEX)
+            .find(|e| e.header.typ == TYPE_SLOT_INDEX)
             .unwrap();
         let state_idx = SlotIndex::decode(&state_idx_entry.data).unwrap();
 
@@ -449,7 +449,7 @@ mod tests {
         let state_idx_abs: u64 = entries
             .iter()
             .enumerate()
-            .find(|(_, e)| e.header.typ == TYPE_STATE_INDEX)
+            .rfind(|(_, e)| e.header.typ == TYPE_SLOT_INDEX)
             .map(|(i, _)| {
                 entries[..i]
                     .iter()

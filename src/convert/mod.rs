@@ -138,7 +138,7 @@ fn compress_into(data: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::format::era::{SlotIndex, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK};
+    use crate::format::era::{SlotIndex, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX};
     use crate::format::era1::*;
     use crate::verify::verify_era;
     use crate::{format::Entry, write::E2StoreWriter};
@@ -179,7 +179,7 @@ mod tests {
 
         // Block index: slots 100, 101, 102
         let idx = SlotIndex::with_count(100, vec![-8i64, 0i64, -8i64], 2);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         buf
@@ -250,7 +250,7 @@ mod tests {
         let mut w = E2StoreWriter::new(&mut buf);
         w.write_entry(&Entry::version()).unwrap();
         let idx = SlotIndex::new(0, vec![]);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         let mut output = Vec::new();
@@ -277,7 +277,7 @@ mod tests {
         ))
         .unwrap();
         let idx = SlotIndex::with_count(0, vec![-8i64], 1);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         let mut output = Vec::new();

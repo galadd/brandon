@@ -20,8 +20,8 @@ use std::{collections::HashMap, io::Read};
 use crate::format::{
     e2store::E2StoreReader,
     era::{
-        SlotIndex, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_BEACON_STATE,
-        TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_STATE_INDEX, decompress_entry,
+        SlotIndex, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
+        TYPE_SLOT_INDEX, decompress_entry,
     },
     era1::{
         TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS,
@@ -135,6 +135,7 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
 
     let mut block_count = 0usize;
     let mut state_present = false;
+    let mut slot_index_seen = false;
     let mut block_index: Option<SlotIndex> = None;
     let mut block_index_pos: Option<u64> = None;
     let mut state_index: Option<SlotIndex> = None;
@@ -178,28 +179,30 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 }
             }
 
-            TYPE_BLOCK_INDEX => {
-                block_index_pos = Some(entry_pos);
-                match SlotIndex::decode(&entry.data) {
-                    Ok(idx) => block_index = Some(idx),
-                    Err(e) => {
-                        result.valid = false;
-                        result
-                            .errors
-                            .push(format!("entry {i}: invalid block index: {e}"));
-                    }
-                }
-            }
+            TYPE_SLOT_INDEX => {
+                if !slot_index_seen {
+                    slot_index_seen = true;
 
-            TYPE_STATE_INDEX => {
-                state_index_pos = Some(entry_pos);
-                match SlotIndex::decode(&entry.data) {
-                    Ok(idx) => state_index = Some(idx),
-                    Err(e) => {
-                        result.valid = false;
-                        result
-                            .errors
-                            .push(format!("entry {i}: invalid state index: {e}"));
+                    block_index_pos = Some(entry_pos);
+                    match SlotIndex::decode(&entry.data) {
+                        Ok(idx) => block_index = Some(idx),
+                        Err(e) => {
+                            result.valid = false;
+                            result
+                                .errors
+                                .push(format!("entry {i}: invalid block index: {e}"));
+                        }
+                    }
+                } else {
+                    state_index_pos = Some(entry_pos);
+                    match SlotIndex::decode(&entry.data) {
+                        Ok(idx) => state_index = Some(idx),
+                        Err(e) => {
+                            result.valid = false;
+                            result
+                                .errors
+                                .push(format!("entry {i}: invalid state index: {e}"));
+                        }
                     }
                 }
             }
@@ -320,11 +323,30 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
             result.errors.push("missing block index".into());
         }
         (Some(idx), Some(idx_pos)) => {
-            if idx.count as usize != block_count {
+            let indexed_blocks = idx
+                .offsets
+                .iter()
+                .filter(|&&o| {
+                    if o == 0 {
+                        return false;
+                    }
+                    let abs = (idx_pos as i64 + o) as u64;
+                    abs != 0
+                })
+                .count();
+
+            if indexed_blocks != block_count {
                 result.valid = false;
                 result.errors.push(format!(
-                    "block index count mismatch: index={}, entries={}",
-                    idx.count, block_count
+                    "block index has {indexed_blocks} non-zero offsets, file has {block_count} block entries"
+                ));
+            }
+
+            if idx.count as usize != idx.offsets.len() {
+                result.warnings.push(format!(
+                    "block index count field ({}) does not match offset array length ({})",
+                    idx.count,
+                    idx.offsets.len()
                 ));
             }
 
@@ -341,6 +363,10 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
 
                 let abs = (idx_pos as i64 + offset) as u64;
                 let slot = idx.starting_slot + slot_i as u64;
+
+                if abs == 0 {
+                    continue;
+                }
 
                 if abs >= file_size {
                     result.valid = false;
@@ -476,9 +502,9 @@ mod tests {
         buf
     }
 
-    fn make_block_index(offsets: Vec<i64>) -> Vec<u8> {
+    fn make_slot_index(offsets: Vec<i64>) -> Vec<u8> {
         let idx = SlotIndex::new(0, offsets);
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         let mut buf = Vec::new();
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
@@ -591,7 +617,7 @@ mod tests {
 
         let idx = SlotIndex::with_count(0, vec![block_offset], 1);
 
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -613,7 +639,7 @@ mod tests {
         let block_index_pos = 8 + header.len() as u64 + body.len() as u64 + td.len() as u64;
         let offset = header_pos as i64 - block_index_pos as i64;
 
-        let block_index = make_block_index(vec![offset]);
+        let block_index = make_slot_index(vec![offset]);
 
         let mut buf = Vec::new();
         buf.extend_from_slice(&version.header.encode());
@@ -645,7 +671,7 @@ mod tests {
         let index_pos = buf.len() as u64;
         let offset = header_pos as i64 - index_pos as i64;
 
-        buf.extend_from_slice(&make_block_index(vec![offset]));
+        buf.extend_from_slice(&make_slot_index(vec![offset]));
 
         let r = verify_era(&buf[..]);
         if !r.valid {
@@ -667,7 +693,7 @@ mod tests {
         let index_pos = buf.len() as u64;
         let offset = header_pos as i64 - index_pos as i64;
 
-        buf.extend_from_slice(&make_block_index(vec![offset]));
+        buf.extend_from_slice(&make_slot_index(vec![offset]));
 
         let r = verify_era(&buf[..]);
         assert!(!r.valid);
@@ -691,7 +717,7 @@ mod tests {
         let index_pos = buf.len() as u64;
         let offset = header_pos as i64 - index_pos as i64;
 
-        buf.extend_from_slice(&make_block_index(vec![offset]));
+        buf.extend_from_slice(&make_slot_index(vec![offset]));
 
         let r = verify_era(&buf[..]);
         assert!(!r.valid);
@@ -721,7 +747,7 @@ mod tests {
         let offset0 = header0_pos as i64 - index_pos as i64;
         let offset1 = header1_pos as i64 - index_pos as i64;
 
-        buf.extend_from_slice(&make_block_index(vec![offset0, offset1]));
+        buf.extend_from_slice(&make_slot_index(vec![offset0, offset1]));
 
         let r = verify_era(&buf[..]);
         assert!(!r.valid);
@@ -748,7 +774,7 @@ mod tests {
 
         let offset = header_pos as i64 - index_pos as i64;
 
-        buf.extend_from_slice(&make_block_index(vec![offset]));
+        buf.extend_from_slice(&make_slot_index(vec![offset]));
 
         let r = verify_era(&buf[..]);
 
@@ -771,7 +797,7 @@ mod tests {
         buf.extend_from_slice(&e.data);
 
         // Empty index (no blocks)
-        buf.extend_from_slice(&make_block_index(vec![]));
+        buf.extend_from_slice(&make_slot_index(vec![]));
 
         let r = verify_era(&buf[..]);
         assert!(!r.valid);
@@ -791,7 +817,7 @@ mod tests {
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
-        buf.extend_from_slice(&make_block_index(vec![]));
+        buf.extend_from_slice(&make_slot_index(vec![]));
 
         let r = verify_era(&buf[..]);
         // Fails because no blocks, but must NOT warn about unknown type
@@ -811,7 +837,7 @@ mod tests {
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
-        buf.extend_from_slice(&make_block_index(vec![]));
+        buf.extend_from_slice(&make_slot_index(vec![]));
 
         let r = verify_era(&buf[..]);
         assert!(r.warnings.iter().any(|w| w.contains("feee")));
@@ -822,7 +848,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.extend_from_slice(&Entry::version().header.encode());
         buf.extend_from_slice(&make_body_entry());
-        buf.extend_from_slice(&make_block_index(vec![]));
+        buf.extend_from_slice(&make_slot_index(vec![]));
 
         let r = verify_era(&buf[..]);
         assert!(
@@ -869,14 +895,14 @@ mod tests {
         let block_offset = block_pos as i64 - block_index_pos as i64;
         let idx = SlotIndex::with_count(0, vec![block_offset], 1);
 
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
         // State index with no actual state entry
         let idx = SlotIndex::with_count(8192, vec![-100i64], 1);
 
-        let e = Entry::new(TYPE_STATE_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -905,7 +931,7 @@ mod tests {
         let offset = body_pos as i64 - index_pos as i64;
 
         let idx = SlotIndex::with_count(0, vec![offset], 1);
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -928,7 +954,7 @@ mod tests {
         buf.extend_from_slice(&Entry::version().header.encode());
 
         let idx = SlotIndex::with_count(0, vec![999999i64], 1);
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -948,7 +974,7 @@ mod tests {
 
         // Offset points to byte 12 (mid-entry, not aligned)
         let idx = SlotIndex::with_count(0, vec![4i64], 1); // 8 + 4 = 12
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -958,25 +984,55 @@ mod tests {
     }
 
     #[test]
-    fn count_mismatch_fails() {
+    fn non_zero_offset_count_mismatch_fails() {
         let mut buf = Vec::new();
         buf.extend_from_slice(&Entry::version().header.encode());
 
+        let block_pos = buf.len() as u64;
         let e = Entry::new(TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, compress(&[0x01]));
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
-        // Index says count=5 but file only has 1 block
-        let idx = SlotIndex::with_count(0, vec![-8i64], 5);
-        let e = Entry::new(TYPE_BLOCK_INDEX, idx.encode());
+        let index_pos = buf.len() as u64;
+        let offset1 = block_pos as i64 - index_pos as i64;
+        let offset2 = block_pos as i64 - index_pos as i64;
+
+        // Index has 2 offsets pointing to real blocks, but file only has 1 block
+        let idx = SlotIndex::with_count(0, vec![offset1, offset2], 2);
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
         let r = verify_era(&buf[..]);
         assert!(!r.valid);
-        assert!(r.errors.iter().any(|e| e.contains("count mismatch")
-            && e.contains("index=5")
-            && e.contains("entries=1")));
+        assert!(
+            r.errors
+                .iter()
+                .any(|e| e.contains("non-zero offsets") && e.contains("2") && e.contains("1"))
+        );
+    }
+
+    #[test]
+    fn count_field_mismatch_warns() {
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&Entry::version().header.encode());
+
+        let block_pos = buf.len() as u64;
+        let e = Entry::new(TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, compress(&[0x01]));
+        buf.extend_from_slice(&e.header.encode());
+        buf.extend_from_slice(&e.data);
+
+        let index_pos = buf.len() as u64;
+        let offset = block_pos as i64 - index_pos as i64;
+
+        // count field says 5, but offset array has 1 element
+        let idx = SlotIndex::with_count(0, vec![offset], 5);
+        let e = Entry::new(TYPE_SLOT_INDEX, idx.encode());
+        buf.extend_from_slice(&e.header.encode());
+        buf.extend_from_slice(&e.data);
+
+        let r = verify_era(&buf[..]);
+        assert!(r.warnings.iter().any(|w| w.contains("count field")));
     }
 
     #[test]
@@ -995,12 +1051,12 @@ mod tests {
             .unwrap();
         let idx_entry = entries
             .iter()
-            .find(|e| e.header.typ == TYPE_BLOCK_INDEX)
+            .find(|e| e.header.typ == TYPE_SLOT_INDEX)
             .unwrap();
         let idx = SlotIndex::decode(&idx_entry.data).unwrap();
 
         assert_eq!(idx.offsets.len(), 4); // slots 0,1,2,3
-        assert_eq!(idx.count, 3); // 3 non-zero (slot 2 is 0)
+        assert_eq!(idx.count, 4); // 3 non-zero (slot 2 is 0)
     }
 
     #[test]
@@ -1020,7 +1076,7 @@ mod tests {
         buf.extend_from_slice(&make_era1_header_entry(&[0x01]));
         buf.extend_from_slice(&make_body_entry());
         buf.extend_from_slice(&make_td_entry(0));
-        buf.extend_from_slice(&make_block_index(vec![-8i64]));
+        buf.extend_from_slice(&make_slot_index(vec![-8i64]));
 
         assert_eq!(verify_era(&buf[..]).format.as_deref(), Some("ERA1"));
     }

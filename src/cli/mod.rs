@@ -11,10 +11,7 @@ use std::{collections::BTreeMap, fs::File, io::BufReader};
 use anyhow::Context;
 use brandon::format::{
     e2store::TYPE_VERSION,
-    era::{
-        TYPE_BLOCK_INDEX, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
-        TYPE_STATE_INDEX,
-    },
+    era::{TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX},
     era1::{
         TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS,
         TYPE_TOTAL_DIFFICULTY,
@@ -99,8 +96,7 @@ pub fn entry_type_name(typ: &[u8; 2]) -> &'static str {
         TYPE_VERSION => "Version",
         TYPE_COMPRESSED_SIGNED_BEACON_BLOCK => "CompressedSignedBeaconBlock",
         TYPE_COMPRESSED_BEACON_STATE => "CompressedBeaconState",
-        TYPE_BLOCK_INDEX => "BlockIndex",
-        TYPE_STATE_INDEX => "StateIndex",
+        TYPE_SLOT_INDEX => "SlotIndex",
         TYPE_COMPRESSED_HEADER => "CompressedHeader",
         TYPE_BLOCK_BODY => "BlockBody",
         TYPE_RECEIPTS => "Receipts",

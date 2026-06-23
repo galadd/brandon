@@ -17,10 +17,7 @@ pub const TYPE_COMPRESSED_SIGNED_BEACON_BLOCK: [u8; 2] = [0x01, 0x00];
 pub const TYPE_COMPRESSED_BEACON_STATE: [u8; 2] = [0x02, 0x00];
 
 /// Block slot index.
-pub const TYPE_BLOCK_INDEX: [u8; 2] = [0x66, 0x32];
-
-/// State slot index.
-pub const TYPE_STATE_INDEX: [u8; 2] = [0x33, 0x00];
+pub const TYPE_SLOT_INDEX: [u8; 2] = [0x69, 0x32];
 
 /// Number of slots per era (= SLOTS_PER_HISTORICAL_ROOT).
 pub const SLOTS_PER_ERA: u64 = 8192;
@@ -44,7 +41,7 @@ pub struct SlotIndex {
 
 impl SlotIndex {
     pub fn new(starting_slot: u64, offsets: Vec<i64>) -> Self {
-        let count = offsets.iter().filter(|&&o| o != 0).count() as u64;
+        let count = offsets.len() as u64;
 
         Self {
             starting_slot,
@@ -128,11 +125,13 @@ mod tests {
     #[test]
     fn slot_index_roundtrip() {
         let idx = SlotIndex::new(0, vec![0, 100, 200, 0, 300]);
+        assert_eq!(idx.count, 5);
+
         let encoded = idx.encode();
         let decoded = SlotIndex::decode(&encoded).unwrap();
         assert_eq!(decoded.starting_slot, 0);
         assert_eq!(decoded.offsets, vec![0, 100, 200, 0, 300]);
-        assert_eq!(decoded.count, 3);
+        assert_eq!(decoded.count, 5);
     }
 
     #[test]

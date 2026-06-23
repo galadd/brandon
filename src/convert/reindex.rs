@@ -12,8 +12,8 @@ use crate::{
         Entry,
         e2store::E2StoreReader,
         era::{
-            SlotIndex, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_BEACON_STATE,
-            TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_STATE_INDEX,
+            SlotIndex, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
+            TYPE_SLOT_INDEX,
         },
         era1::TYPE_COMPRESSED_HEADER,
     },
@@ -69,7 +69,7 @@ where
     while let Some(entry) = e2s.next_entry().map_err(Error::Io)? {
         // Always skip old indexes - we write new ones at the end
         match entry.header.typ {
-            TYPE_BLOCK_INDEX | TYPE_STATE_INDEX => continue,
+            TYPE_SLOT_INDEX => continue,
             _ => {}
         }
 
@@ -96,7 +96,7 @@ where
 
     let block_index_pos = pos;
     let block_index = build_block_index(out_block_slots, out_block_positions, block_index_pos);
-    w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, block_index.encode()))?;
+    w.write_entry(&Entry::new(TYPE_SLOT_INDEX, block_index.encode()))?;
     pos += 8 + block_index.encode().len() as u64;
 
     if let Some(abs_pos) = state_position {
@@ -104,7 +104,7 @@ where
         let state_index_pos = pos;
         let offset = abs_pos as i64 - state_index_pos as i64;
         let state_index = SlotIndex::new(state_slot, vec![offset]);
-        w.write_entry(&Entry::new(TYPE_STATE_INDEX, state_index.encode()))?;
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, state_index.encode()))?;
     }
 
     Ok(())
@@ -121,24 +121,22 @@ fn extract_index_metadata<R: Read + Seek>(
         .seek(std::io::SeekFrom::Start(0))
         .map_err(Error::Io)?;
 
-    let mut block_idx_pos = None;
-    let mut state_idx_pos = None;
+    let mut index_positions: Vec<u64> = Vec::new();
     let mut pos = 0u64;
 
     {
         let mut scanner = E2StoreReader::new(&mut *reader);
         while let Some(header) = scanner.next_header_skip().map_err(Error::Io)? {
             match header.typ {
-                TYPE_BLOCK_INDEX => block_idx_pos = Some(pos),
-                TYPE_STATE_INDEX => state_idx_pos = Some(pos),
+                TYPE_SLOT_INDEX => index_positions.push(pos),
                 _ => {}
             }
             pos += 8 + header.length as u64;
         }
     }
 
-    let block_slots = match block_idx_pos {
-        Some(p) => {
+    let block_slots = match index_positions.first() {
+        Some(&p) => {
             reader
                 .seek(std::io::SeekFrom::Start(p))
                 .map_err(Error::Io)?;
@@ -165,8 +163,8 @@ fn extract_index_metadata<R: Read + Seek>(
         None => Vec::new(),
     };
 
-    let state_slot = match state_idx_pos {
-        Some(p) => {
+    let state_slot = match index_positions.get(1) {
+        Some(&p) => {
             reader
                 .seek(std::io::SeekFrom::Start(p))
                 .map_err(Error::Io)?;
@@ -240,7 +238,7 @@ mod tests {
             .unwrap();
 
         let idx = SlotIndex::with_count(50, vec![-999i64, 0i64, -888i64], 2);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         buf
@@ -283,7 +281,7 @@ mod tests {
         let mut w = E2StoreWriter::new(&mut buf);
         w.write_entry(&Entry::version()).unwrap();
         let idx = SlotIndex::new(0, vec![]);
-        w.write_entry(&Entry::new(TYPE_BLOCK_INDEX, idx.encode()))
+        w.write_entry(&Entry::new(TYPE_SLOT_INDEX, idx.encode()))
             .unwrap();
 
         let mut output = Vec::new();

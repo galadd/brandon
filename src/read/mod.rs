@@ -44,10 +44,9 @@ impl std::fmt::Display for EraFormat {
 /// Detect ERA vs ERA1 format an entry type.
 fn detect_format(typ: &[u8; 2]) -> EraFormat {
     match *typ {
-        TYPE_COMPRESSED_SIGNED_BEACON_BLOCK
-        | TYPE_COMPRESSED_BEACON_STATE
-        | TYPE_BLOCK_INDEX
-        | TYPE_STATE_INDEX => EraFormat::Era,
+        TYPE_COMPRESSED_SIGNED_BEACON_BLOCK | TYPE_COMPRESSED_BEACON_STATE | TYPE_SLOT_INDEX => {
+            EraFormat::Era
+        }
         _ => EraFormat::Era1,
     }
 }
@@ -91,8 +90,8 @@ impl TypedEntry {
         match self {
             TypedEntry::BeaconBlock { .. } => TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
             TypedEntry::BeaconState { .. } => TYPE_COMPRESSED_BEACON_STATE,
-            TypedEntry::BlockIndex { .. } => TYPE_BLOCK_INDEX,
-            TypedEntry::StateIndex { .. } => TYPE_STATE_INDEX,
+            TypedEntry::BlockIndex { .. } => TYPE_SLOT_INDEX,
+            TypedEntry::StateIndex { .. } => TYPE_SLOT_INDEX,
             TypedEntry::Header { .. } => TYPE_COMPRESSED_HEADER,
             TypedEntry::BlockBody { .. } => TYPE_BLOCK_BODY,
             TypedEntry::Receipts { .. } => TYPE_RECEIPTS,
@@ -107,8 +106,8 @@ impl TypedEntry {
         match self {
             TypedEntry::BeaconBlock { .. } => "BeaconBlock",
             TypedEntry::BeaconState { .. } => "BeaconState",
-            TypedEntry::BlockIndex { .. } => "BlockIndex",
-            TypedEntry::StateIndex { .. } => "StateIndex",
+            TypedEntry::BlockIndex { .. } => "SlotIndex",
+            TypedEntry::StateIndex { .. } => "SlotIndex",
             TypedEntry::Header { .. } => "Header",
             TypedEntry::BlockBody { .. } => "BlockBody",
             TypedEntry::Receipts { .. } => "Receipts",
@@ -150,15 +149,10 @@ fn decode_entry(entry: crate::format::Entry) -> Result<TypedEntry, Error> {
             let decompressed = decompress_entry(&data)?;
             Ok(TypedEntry::BeaconState { data: decompressed })
         }
-        TYPE_BLOCK_INDEX => {
+        TYPE_SLOT_INDEX => {
             let index = SlotIndex::decode(&data)
-                .map_err(|e| E2StoreError::InvalidEra(format!("bad block index: {e}")))?;
+                .map_err(|e| E2StoreError::InvalidEra(format!("bad slot index: {e}")))?;
             Ok(TypedEntry::BlockIndex { index })
-        }
-        TYPE_STATE_INDEX => {
-            let index = SlotIndex::decode(&data)
-                .map_err(|e| E2StoreError::InvalidEra(format!("bad block index: {e}")))?;
-            Ok(TypedEntry::StateIndex { index })
         }
 
         // ERA1
@@ -219,6 +213,7 @@ pub struct EraReader<R> {
     inner: E2StoreReader<R>,
     format: Option<EraFormat>,
     version_consumed: bool,
+    block_index_seen: bool,
 }
 
 impl<R: Read> EraReader<R> {
@@ -229,6 +224,7 @@ impl<R: Read> EraReader<R> {
             inner: E2StoreReader::new(inner),
             format: None,
             version_consumed: false,
+            block_index_seen: false,
         }
     }
 
@@ -270,7 +266,18 @@ impl<R: Read> EraReader<R> {
                 self.format = Some(detect_format(&raw.header.typ));
             }
 
-            return Ok(Some(decode_entry(raw)?));
+            let mut typed = decode_entry(raw)?;
+            if typed.entry_type() == TYPE_SLOT_INDEX {
+                if self.block_index_seen {
+                    if let TypedEntry::BlockIndex { index } = typed {
+                        typed = TypedEntry::StateIndex { index };
+                    }
+                } else {
+                    self.block_index_seen = true;
+                }
+            }
+
+            return Ok(Some(typed));
         }
     }
 
@@ -544,7 +551,7 @@ pub struct EraRandomReader<R> {
     block_index: Option<SlotIndex>,
     /// Byte offset of the block index entry's header in the file.
     /// Offsets in the index are relative to this position.
-    block_index_offset: Option<u64>,
+    block_index_positions: Vec<u64>,
 }
 
 impl<R: Read + Seek> EraRandomReader<R> {
@@ -574,7 +581,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
 
         let mut format = None;
         let mut block_index = None;
-        let mut block_index_offset = None;
+        let mut index_positions: Vec<u64> = Vec::new();
         let mut pos: u64 = 0;
 
         while let Some(header) = scanner.next_header_only().map_err(Error::Io)? {
@@ -582,7 +589,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
                 format = Some(detect_format(&header.typ));
             }
 
-            if header.typ == TYPE_BLOCK_INDEX {
+            if header.typ == TYPE_SLOT_INDEX {
                 reader
                     .seek(std::io::SeekFrom::Start(pos))
                     .map_err(Error::Io)?;
@@ -595,7 +602,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
                     SlotIndex::decode(&entry.data)
                         .map_err(|e| E2StoreError::InvalidEra(format!("bad block index: {e}")))?,
                 );
-                block_index_offset = Some(pos);
+                index_positions.push(pos);
                 break;
             }
 
@@ -606,7 +613,7 @@ impl<R: Read + Seek> EraRandomReader<R> {
             reader,
             format,
             block_index,
-            block_index_offset,
+            block_index_positions: index_positions,
         })
     }
 
@@ -662,7 +669,9 @@ impl<R: Read + Seek> EraRandomReader<R> {
 
         // Offsets are relative to the block index entry's position in the file
         let index_start = self
-            .block_index_offset
+            .block_index_positions
+            .first()
+            .copied()
             .ok_or(SlotLookupError::IndexNotFound)?;
 
         // relative_offset can be negative (entries before the index)
@@ -857,7 +866,7 @@ mod tests {
         // Index starts at byte 8 (after version). Header entry is at offset 0 relative to
         // index.
         let block_index = SlotIndex::new(0, vec![8i64]);
-        let idx_entry = Entry::new(TYPE_BLOCK_INDEX, block_index.encode());
+        let idx_entry = Entry::new(TYPE_SLOT_INDEX, block_index.encode());
         let idx_offset = buf.len() as i64;
         buf.extend_from_slice(&idx_entry.header.encode());
         buf.extend_from_slice(&idx_entry.data);
@@ -869,7 +878,7 @@ mod tests {
         let fixed_index = SlotIndex::new(0, vec![correct_offset]);
         // Rebuild with correct offset
         buf.truncate(idx_offset as usize);
-        let idx_entry = Entry::new(TYPE_BLOCK_INDEX, fixed_index.encode());
+        let idx_entry = Entry::new(TYPE_SLOT_INDEX, fixed_index.encode());
         buf.extend_from_slice(&idx_entry.header.encode());
         buf.extend_from_slice(&idx_entry.data);
 
