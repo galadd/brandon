@@ -65,6 +65,21 @@ brandon read file.era1 --all --output-dir ./blocks/
 brandon read file.era --all --state
 ```
 
+### Convert and restructure
+```bash
+# Rebuild indexes (fixes corrupt offsets without touching block data)
+brandon convert reindex file.era1 -o fixed.era1
+
+# Strip receipts to save disk space
+brandon convert strip file.era1 -o slim.era1 --strip-receipts
+
+# Strip everything except block headers
+brandon convert strip file.era1 -o headers-only.era1 --strip-receipts --strip-bodies --strip-td
+
+# Split into individual {slot}.snappy files
+brandon convert split file.era1 --output-dir ./blocks/
+```
+
 ### Build an ERA file
 
 ```bash
@@ -81,7 +96,8 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-brandon = "0.1"
+# brandon = "0.1"
+brandon = { path = "../path/to/brandon" }
 ```
 
 ### Read a file
@@ -146,6 +162,36 @@ let mut output = std::fs::File::create("out.era")?;
 builder.build(&mut output)?;
 ```
 
+### Convert and transform
+```rust
+use brandon::convert::{self, strip::StripConfig};
+use std::fs::File;
+
+// Reindex a file with corrupt offsets
+let input = File::open("corrupt.era1")?;
+let output = File::create("fixed.era1")?;
+convert::reindex::reindex(input, output)?;
+
+// Strip receipts to save space
+let input = File::open("full.era1")?;
+let output = File::create("slim.era1")?;
+convert::strip::strip(input, output, &StripConfig::receipts_only())?;
+
+// ERA1 to ERA synthesis (bring your own SSZ library)
+use brandon::convert::era1_to_era;
+use brandon::read::Era1Block;
+
+let input = File::open("mainnet-00000-5ec1ffb8.era1")?;
+let output = File::create("synthetic.era")?;
+
+// Buffers are reused across all blocks—zero per-block allocation
+era1_to_era(input, output, |era1_block: &Era1Block, ssz_buf: &mut Vec<u8>| {
+    ssz_buf.clear();
+    my_ssz_lib::wrap_in_beacon_block(era1_block, ssz_buf)?;
+    Ok(())
+})?;
+```
+
 ### Verify a file
 
 ```rust
@@ -166,16 +212,16 @@ println!("{} blocks verified", result.block_count);
 
 ## What it does
 
-| Capability | Description |
+| CAPABILITY | DESCRIPTION |
 |---|---|
 | Read | Stream ERA/ERA1 files, random access by slot |
 | Write | Build ERA files from compressed block data |
 | Verify | Structural validation, index integrity, manifest hashes |
-| Convert | (planned) |
+| Convert | Rebuild indexes, remove entries, extract block |
 
 ## Format support
 
-| Format | Spec | Description |
+| FORMAT | SPEC | DESCRIPTION |
 |---|---|---|
 | ERA1 | [e2store era1](https://github.com/eth-clients/e2store-format-specs/blob/main/formats/era1.md) | Pre-merge execution blocks |
 | ERA | [e2store era](https://github.com/eth-clients/e2store-format-specs/blob/main/formats/era.md) | Post-merge beacon chain |
