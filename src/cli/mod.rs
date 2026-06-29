@@ -2,6 +2,7 @@
 
 mod build;
 mod convert;
+mod directory;
 mod info;
 mod read;
 mod verify;

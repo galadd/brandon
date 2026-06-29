@@ -7,6 +7,8 @@ use anyhow::{Context, bail};
 use brandon::{Block, EraBlockReader, EraRandomReader};
 use serde::Serialize;
 
+use crate::cli::directory::Input;
+
 use super::{human_size, open_file, output};
 
 #[derive(Serialize)]
@@ -91,8 +93,8 @@ fn write_full_era1_raw(w: &mut dyn Write, block: &brandon::read::Era1Block) -> a
 
 #[derive(clap::Args)]
 pub struct ReadArgs {
-    /// Path to an ERA or ERA1 file.
-    pub file: String,
+    /// Path to an ERA, ERA1 file, or directory.
+    pub path: String,
 
     #[arg(long, conflicts_with = "all")]
     pub slot: Option<u64>,
@@ -117,20 +119,32 @@ pub struct ReadArgs {
 }
 
 pub fn run(args: ReadArgs) -> anyhow::Result<()> {
-    if args.slot.is_none() && !args.all && args.count.is_none() {
-        return run_stream(
-            &args.file,
-            None,
-            args.state,
-            &args.format,
-            args.output.as_deref(),
-            args.output_dir.as_deref(),
-        );
-    }
+    let input = Input::resolve(args.path.as_str())?;
 
+    match input {
+        Input::File(_) => run_single_file(args),
+        Input::Dir(dir) => {
+            if let Some(slot) = args.slot {
+                run_dir_slot(&dir, slot, args.state, &args.format, args.output.as_deref())
+            } else if args.all || args.count.is_some() {
+                run_dir_stream(
+                    &dir,
+                    args.count,
+                    args.state,
+                    &args.format,
+                    args.output_dir.as_deref(),
+                )
+            } else {
+                bail!("specify --slot, --all, or --count for directory input")
+            }
+        }
+    }
+}
+
+pub fn run_single_file(args: ReadArgs) -> anyhow::Result<()> {
     if let Some(slot) = args.slot {
         return run_slot(
-            &args.file,
+            &args.path,
             slot,
             args.state,
             &args.format,
@@ -138,9 +152,11 @@ pub fn run(args: ReadArgs) -> anyhow::Result<()> {
         );
     }
 
+    let limit = if args.all { None } else { args.count };
+
     run_stream(
-        &args.file,
-        args.count,
+        &args.path,
+        limit,
         args.state,
         &args.format,
         args.output.as_deref(),
@@ -302,29 +318,19 @@ fn run_stream(
         state_data = rr.read_state()?;
     }
 
+    let result = ReadResult {
+        blocks,
+        state: state_data.clone().map(|d| StateSummary {
+            size: d.len(),
+            size_human: human_size(d.len() as u64),
+            hash_prefix: format!("0x{}", sha256_prefix(&d, 8)),
+        }),
+    };
+
     match format {
-        "hex" => {
-            let result = ReadResult {
-                blocks,
-                state: state_data.map(|d| StateSummary {
-                    size: d.len(),
-                    size_human: human_size(d.len() as u64),
-                    hash_prefix: format!("0x{}", sha256_prefix(&d, 8)),
-                }),
-            };
-            output(&result, false);
-        }
-        "json" => {
-            let result = ReadResult {
-                blocks,
-                state: state_data.map(|d| StateSummary {
-                    size: d.len(),
-                    size_human: human_size(d.len() as u64),
-                    hash_prefix: format!("0x{}", sha256_prefix(&d, 8)),
-                }),
-            };
-            output(&result, true);
-        }
+        "hex" => output(&result, false),
+        "json" => output(&result, true),
+
         "raw" => {
             if let (Some(dir), Some(ref data)) = (output_dir, state_data) {
                 let p = format!("{dir}/state.raw");
@@ -336,5 +342,70 @@ fn run_stream(
         _ => {}
     }
 
+    Ok(())
+}
+
+fn run_dir_slot(
+    dir: &super::directory::ArchiveDirectory,
+    slot: u64,
+    state: bool,
+    format: &str,
+    output_file: Option<&str>,
+) -> anyhow::Result<()> {
+    let file_path = dir
+        .find_file_for_slot(slot)
+        .ok_or_else(|| anyhow::anyhow!("slot {slot} not found in directory"))?;
+
+    // Delegate to the single-file slot logic
+    run_single_file(ReadArgs {
+        path: file_path.to_string_lossy().into_owned(),
+        slot: Some(slot),
+        all: false,
+        count: None,
+        state,
+        format: format.to_owned(),
+        output: output_file.map(str::to_owned),
+        output_dir: None,
+    })
+}
+
+fn run_dir_stream(
+    dir: &super::directory::ArchiveDirectory,
+    count: Option<usize>,
+    state: bool,
+    format: &str,
+    output_dir: Option<&str>,
+) -> anyhow::Result<()> {
+    match count {
+        Some(limit) => {
+            for (_, path) in &dir.files {
+                run_single_file(ReadArgs {
+                    path: path.to_string_lossy().into_owned(),
+                    slot: None,
+                    all: false,
+                    count: Some(limit),
+                    state,
+                    format: format.to_owned(),
+                    output: None,
+                    output_dir: output_dir.map(str::to_owned),
+                })?;
+                break;
+            }
+        }
+        None => {
+            for (_, path) in &dir.files {
+                run_single_file(ReadArgs {
+                    path: path.to_string_lossy().into_owned(),
+                    slot: None,
+                    all: true,
+                    count: None,
+                    state,
+                    format: format.to_owned(),
+                    output: None,
+                    output_dir: output_dir.map(str::to_owned),
+                })?;
+            }
+        }
+    }
     Ok(())
 }

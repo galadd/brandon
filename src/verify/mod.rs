@@ -24,8 +24,8 @@ use crate::format::{
         TYPE_SLOT_INDEX, decompress_entry,
     },
     era1::{
-        TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS,
-        TYPE_TOTAL_DIFFICULTY,
+        TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_HEADER,
+        TYPE_RECEIPTS, TYPE_TOTAL_DIFFICULTY,
     },
 };
 
@@ -289,6 +289,20 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                         "entry {i}: BlockAccumulator must be 32 bytes, got {}",
                         entry.data.len()
                     ));
+                }
+            }
+
+            TYPE_BLOCK_INDEX => {
+                block_index_pos = Some(entry_pos);
+
+                match SlotIndex::decode(&entry.data) {
+                    Ok(idx) => block_index = Some(idx),
+                    Err(e) => {
+                        result.valid = false;
+                        result
+                            .errors
+                            .push(format!("entry {i}: invalid block index: {e}"));
+                    }
                 }
             }
 

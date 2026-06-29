@@ -19,6 +19,8 @@ pub const TYPE_TOTAL_DIFFICULTY: [u8; 2] = [0x06, 0x00];
 /// Block accumulator (SSZ-encoded hash tree root of HeaderRecord list).
 pub const TYPE_BLOCK_ACCUMULATOR: [u8; 2] = [0x07, 0x00];
 
+pub const TYPE_BLOCK_INDEX: [u8; 2] = [0x66, 0x32];
+
 /// Maximum number of blocks per ERA1 file.
 pub const MAX_ERA1_BLOCKS: usize = 8192;
 
