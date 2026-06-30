@@ -20,8 +20,11 @@ use crate::error::E2StoreError;
 use crate::error::Error;
 use crate::format::Header;
 use crate::format::e2store::E2StoreReader;
-use crate::format::era::*;
-use crate::format::era1::*;
+use crate::format::era::SlotIndex;
+use crate::format::era::decompress_entry;
+use crate::format::era1::B256;
+use crate::format::era1::U256;
+use crate::format::types::*;
 
 /// Detected file format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,10 +96,10 @@ impl TypedEntry {
             TypedEntry::BlockIndex { .. } => TYPE_SLOT_INDEX,
             TypedEntry::StateIndex { .. } => TYPE_SLOT_INDEX,
             TypedEntry::Header { .. } => TYPE_COMPRESSED_HEADER,
-            TypedEntry::BlockBody { .. } => TYPE_BLOCK_BODY,
-            TypedEntry::Receipts { .. } => TYPE_RECEIPTS,
+            TypedEntry::BlockBody { .. } => TYPE_COMPRESSED_BODY,
+            TypedEntry::Receipts { .. } => TYPE_COMPRESSED_RECEIPTS,
             TypedEntry::TotalDifficulty { .. } => TYPE_TOTAL_DIFFICULTY,
-            TypedEntry::BlockAccumulator { .. } => TYPE_BLOCK_ACCUMULATOR,
+            TypedEntry::BlockAccumulator { .. } => TYPE_ACCUMULATOR,
             TypedEntry::Unknown { typ, .. } => *typ,
         }
     }
@@ -160,8 +163,8 @@ fn decode_entry(entry: crate::format::Entry) -> Result<TypedEntry, Error> {
             let decompressed = decompress_entry(&data)?;
             Ok(TypedEntry::Header { data: decompressed })
         }
-        TYPE_BLOCK_BODY => Ok(TypedEntry::BlockBody { data }),
-        TYPE_RECEIPTS => Ok(TypedEntry::Receipts { data }),
+        TYPE_COMPRESSED_BODY => Ok(TypedEntry::BlockBody { data }),
+        TYPE_COMPRESSED_RECEIPTS => Ok(TypedEntry::Receipts { data }),
         TYPE_TOTAL_DIFFICULTY => {
             if data.len() != 32 {
                 return Err(E2StoreError::InvalidEra1(format!(
@@ -173,7 +176,7 @@ fn decode_entry(entry: crate::format::Entry) -> Result<TypedEntry, Error> {
             let value = U256(data.try_into().unwrap());
             Ok(TypedEntry::TotalDifficulty { value })
         }
-        TYPE_BLOCK_ACCUMULATOR => {
+        TYPE_ACCUMULATOR => {
             if data.len() != 32 {
                 return Err(E2StoreError::InvalidEra1(format!(
                     "total difficulty must be 32 bytes, got {}",
@@ -801,8 +804,8 @@ impl<R: Read + Seek> EraRandomReader<R> {
 
         while let Some(entry) = e2s.next_entry().map_err(Error::Io)? {
             match entry.header.typ {
-                TYPE_BLOCK_BODY => body = entry.data,
-                TYPE_RECEIPTS => receipts = entry.data,
+                TYPE_COMPRESSED_BODY => body = entry.data,
+                TYPE_COMPRESSED_RECEIPTS => receipts = entry.data,
                 TYPE_TOTAL_DIFFICULTY => {
                     if entry.data.len() == 32 {
                         total_difficulty = U256(entry.data.try_into().unwrap());
@@ -848,11 +851,11 @@ mod tests {
         buf.extend_from_slice(&header_entry.data);
 
         // Block body
-        let body_entry = Entry::new(TYPE_BLOCK_BODY, vec![0x01, 0x02, 0x03]);
+        let body_entry = Entry::new(TYPE_COMPRESSED_BODY, vec![0x01, 0x02, 0x03]);
         buf.extend_from_slice(&body_entry.header.encode());
         buf.extend_from_slice(&body_entry.data);
 
-        let receipts_entry = Entry::new(TYPE_RECEIPTS, vec![0x04, 0x05]);
+        let receipts_entry = Entry::new(TYPE_COMPRESSED_RECEIPTS, vec![0x04, 0x05]);
         buf.extend_from_slice(&receipts_entry.header.encode());
         buf.extend_from_slice(&receipts_entry.data);
 

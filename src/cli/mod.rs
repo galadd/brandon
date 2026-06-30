@@ -10,13 +10,10 @@ mod verify;
 use std::{collections::BTreeMap, fs::File, io::BufReader};
 
 use anyhow::Context;
-use brandon::format::{
-    e2store::TYPE_VERSION,
-    era::{TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX},
-    era1::{
-        TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_COMPRESSED_HEADER, TYPE_RECEIPTS,
-        TYPE_TOTAL_DIFFICULTY,
-    },
+use brandon::format::types::{
+    TYPE_ACCUMULATOR, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_BODY, TYPE_COMPRESSED_HEADER,
+    TYPE_COMPRESSED_RECEIPTS, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX,
+    TYPE_TOTAL_DIFFICULTY, TYPE_VERSION,
 };
 use clap::{Parser, Subcommand};
 
@@ -99,10 +96,10 @@ pub fn entry_type_name(typ: &[u8; 2]) -> &'static str {
         TYPE_COMPRESSED_BEACON_STATE => "CompressedBeaconState",
         TYPE_SLOT_INDEX => "SlotIndex",
         TYPE_COMPRESSED_HEADER => "CompressedHeader",
-        TYPE_BLOCK_BODY => "BlockBody",
-        TYPE_RECEIPTS => "Receipts",
+        TYPE_COMPRESSED_BODY => "BlockBody",
+        TYPE_COMPRESSED_RECEIPTS => "Receipts",
         TYPE_TOTAL_DIFFICULTY => "TotalDifficulty",
-        TYPE_BLOCK_ACCUMULATOR => "BlockAccumulator",
+        TYPE_ACCUMULATOR => "BlockAccumulator",
         _ => "Unknown",
     }
 }

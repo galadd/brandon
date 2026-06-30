@@ -126,7 +126,7 @@ fn run_single(path: &str, json: bool) -> anyhow::Result<()> {
 
     let state_present = data_headers
         .iter()
-        .any(|h| h.typ == brandon::format::era::TYPE_COMPRESSED_BEACON_STATE);
+        .any(|h| h.typ == brandon::format::types::TYPE_COMPRESSED_BEACON_STATE);
 
     let result = InfoResult {
         path: path.to_string(),
@@ -197,7 +197,7 @@ fn run_directory(dir: &super::directory::ArchiveDirectory, json: bool) -> anyhow
 
         let has_state = headers[1..]
             .iter()
-            .any(|h| h.typ == brandon::format::era::TYPE_COMPRESSED_BEACON_STATE);
+            .any(|h| h.typ == brandon::format::types::TYPE_COMPRESSED_BEACON_STATE);
         if has_state {
             states_present += 1;
         }

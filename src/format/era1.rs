@@ -4,23 +4,6 @@
 //!
 //! An ERA1 file contains one era of execution blocks (up to 8192).
 
-/// Snappy-compressed block header (RLP-encoded).
-pub const TYPE_COMPRESSED_HEADER: [u8; 2] = [0x03, 0x00];
-
-/// Block body (RLP-encoded).
-pub const TYPE_BLOCK_BODY: [u8; 2] = [0x04, 0x00];
-
-/// Receipts (RLP-encoded).
-pub const TYPE_RECEIPTS: [u8; 2] = [0x05, 0x00];
-
-/// Total difficulty (SSZ-encoded).
-pub const TYPE_TOTAL_DIFFICULTY: [u8; 2] = [0x06, 0x00];
-
-/// Block accumulator (SSZ-encoded hash tree root of HeaderRecord list).
-pub const TYPE_BLOCK_ACCUMULATOR: [u8; 2] = [0x07, 0x00];
-
-pub const TYPE_BLOCK_INDEX: [u8; 2] = [0x66, 0x32];
-
 /// Maximum number of blocks per ERA1 file.
 pub const MAX_ERA1_BLOCKS: usize = 8192;
 

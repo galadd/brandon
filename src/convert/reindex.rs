@@ -11,11 +11,11 @@ use crate::{
     format::{
         Entry,
         e2store::E2StoreReader,
-        era::{
-            SlotIndex, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
-            TYPE_SLOT_INDEX,
+        era::SlotIndex,
+        types::{
+            TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_HEADER,
+            TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX,
         },
-        era1::TYPE_COMPRESSED_HEADER,
     },
     write::E2StoreWriter,
 };
@@ -206,7 +206,7 @@ mod tests {
     use snap::write::FrameEncoder;
 
     use super::*;
-    use crate::{EraRandomReader, format::era1::*, verify::verify_era};
+    use crate::{EraRandomReader, format::types::*, verify::verify_era};
 
     fn compress(data: &[u8]) -> Vec<u8> {
         let mut enc = FrameEncoder::new(Vec::new());
@@ -221,7 +221,7 @@ mod tests {
 
         w.write_entry(&Entry::new(TYPE_COMPRESSED_HEADER, compress(&[0x32])))
             .unwrap();
-        w.write_entry(&Entry::new(TYPE_BLOCK_BODY, vec![0x01]))
+        w.write_entry(&Entry::new(TYPE_COMPRESSED_BODY, vec![0x01]))
             .unwrap();
         let mut td = [0u8; 32];
         td[31] = 50;
@@ -230,7 +230,7 @@ mod tests {
 
         w.write_entry(&Entry::new(TYPE_COMPRESSED_HEADER, compress(&[0x32])))
             .unwrap();
-        w.write_entry(&Entry::new(TYPE_BLOCK_BODY, vec![0x02]))
+        w.write_entry(&Entry::new(TYPE_COMPRESSED_BODY, vec![0x02]))
             .unwrap();
         let mut td2 = [0u8; 32];
         td2[31] = 52;

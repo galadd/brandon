@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use std::io::{Result, Write};
 
 use crate::format::Entry;
-use crate::format::era::*;
+use crate::format::era::SlotIndex;
+use crate::format::types::*;
 
 /// Writes e2store entries to any `Write` sink.
 ///

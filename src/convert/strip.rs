@@ -12,9 +12,9 @@ use std::io::{Read, Seek, Write};
 use crate::{
     convert::reindex::reindex_filtered,
     error::Error,
-    format::{
-        era::TYPE_COMPRESSED_BEACON_STATE,
-        era1::{TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_RECEIPTS, TYPE_TOTAL_DIFFICULTY},
+    format::types::{
+        TYPE_ACCUMULATOR, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_BODY,
+        TYPE_COMPRESSED_RECEIPTS, TYPE_TOTAL_DIFFICULTY,
     },
 };
 
@@ -48,11 +48,11 @@ impl StripConfig {
 
     fn should_keep(&self, typ: &[u8; 2]) -> bool {
         match *typ {
-            TYPE_RECEIPTS if self.receipts => false,
-            TYPE_BLOCK_BODY if self.bodies => false,
+            TYPE_COMPRESSED_RECEIPTS if self.receipts => false,
+            TYPE_COMPRESSED_BODY if self.bodies => false,
             TYPE_TOTAL_DIFFICULTY if self.total_difficulty => false,
             TYPE_COMPRESSED_BEACON_STATE if self.state => false,
-            TYPE_BLOCK_ACCUMULATOR if self.accumulator => false,
+            TYPE_ACCUMULATOR if self.accumulator => false,
             _ => true,
         }
     }

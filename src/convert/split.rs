@@ -16,8 +16,8 @@ use crate::{
     EraRandomReader,
     error::{E2StoreError, Error},
     format::{
-        e2store::E2StoreReader, era::TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
-        era1::TYPE_COMPRESSED_HEADER,
+        e2store::E2StoreReader,
+        types::{TYPE_COMPRESSED_HEADER, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK},
     },
 };
 
@@ -98,10 +98,7 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::{
-        format::{
-            Entry,
-            era::{SlotIndex, TYPE_SLOT_INDEX},
-        },
+        format::{Entry, era::SlotIndex, types::TYPE_SLOT_INDEX},
         write::E2StoreWriter,
     };
 

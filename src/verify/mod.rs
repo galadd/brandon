@@ -19,13 +19,11 @@ use std::{collections::HashMap, io::Read};
 
 use crate::format::{
     e2store::E2StoreReader,
-    era::{
-        SlotIndex, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
-        TYPE_SLOT_INDEX, decompress_entry,
-    },
-    era1::{
-        TYPE_BLOCK_ACCUMULATOR, TYPE_BLOCK_BODY, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_HEADER,
-        TYPE_RECEIPTS, TYPE_TOTAL_DIFFICULTY,
+    era::{SlotIndex, decompress_entry},
+    types::{
+        TYPE_ACCUMULATOR, TYPE_BLOCK_INDEX, TYPE_COMPRESSED_BEACON_STATE, TYPE_COMPRESSED_BODY,
+        TYPE_COMPRESSED_HEADER, TYPE_COMPRESSED_RECEIPTS, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK,
+        TYPE_SLOT_INDEX, TYPE_TOTAL_DIFFICULTY,
     },
 };
 
@@ -236,7 +234,7 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 }
             }
 
-            TYPE_BLOCK_BODY => {
+            TYPE_COMPRESSED_BODY => {
                 if detected_format.is_none() {
                     detected_format = Some("ERA1");
                 }
@@ -249,7 +247,7 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 }
             }
 
-            TYPE_RECEIPTS => {
+            TYPE_COMPRESSED_RECEIPTS => {
                 if detected_format.is_none() {
                     detected_format = Some("ERA1");
                 }
@@ -282,7 +280,7 @@ pub fn verify_era<R: Read>(reader: R) -> VerificationResult {
                 }
             }
 
-            TYPE_BLOCK_ACCUMULATOR => {
+            TYPE_ACCUMULATOR => {
                 if entry.data.len() != 32 {
                     result.valid = false;
                     result.errors.push(format!(
@@ -491,7 +489,7 @@ mod tests {
     }
 
     fn make_body_entry() -> Vec<u8> {
-        let e = Entry::new(TYPE_BLOCK_BODY, vec![0x01]);
+        let e = Entry::new(TYPE_COMPRESSED_BODY, vec![0x01]);
         let mut buf = Vec::new();
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
@@ -509,7 +507,7 @@ mod tests {
     }
 
     fn make_receipts_entry() -> Vec<u8> {
-        let e = Entry::new(TYPE_RECEIPTS, vec![0x04, 0x05]);
+        let e = Entry::new(TYPE_COMPRESSED_RECEIPTS, vec![0x04, 0x05]);
         let mut buf = Vec::new();
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
@@ -806,7 +804,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.extend_from_slice(&Entry::version().header.encode());
 
-        let e = Entry::new(TYPE_BLOCK_ACCUMULATOR, vec![0u8; 16]);
+        let e = Entry::new(TYPE_ACCUMULATOR, vec![0u8; 16]);
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -827,7 +825,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.extend_from_slice(&Entry::version().header.encode());
 
-        let e = Entry::new(TYPE_BLOCK_ACCUMULATOR, [0u8; 32].to_vec());
+        let e = Entry::new(TYPE_ACCUMULATOR, [0u8; 32].to_vec());
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 
@@ -937,7 +935,7 @@ mod tests {
 
         let body_pos = buf.len() as u64;
 
-        let e = Entry::new(TYPE_BLOCK_BODY, vec![0x01]);
+        let e = Entry::new(TYPE_COMPRESSED_BODY, vec![0x01]);
         buf.extend_from_slice(&e.header.encode());
         buf.extend_from_slice(&e.data);
 

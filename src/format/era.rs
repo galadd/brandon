@@ -10,15 +10,6 @@
 
 use crate::error::Error;
 
-/// CompressedSignedBeaconBlock entry type.
-pub const TYPE_COMPRESSED_SIGNED_BEACON_BLOCK: [u8; 2] = [0x01, 0x00];
-
-/// CompressedBeaconState entry type.
-pub const TYPE_COMPRESSED_BEACON_STATE: [u8; 2] = [0x02, 0x00];
-
-/// Block slot index.
-pub const TYPE_SLOT_INDEX: [u8; 2] = [0x69, 0x32];
-
 /// Number of slots per era (= SLOTS_PER_HISTORICAL_ROOT).
 pub const SLOTS_PER_ERA: u64 = 8192;
 

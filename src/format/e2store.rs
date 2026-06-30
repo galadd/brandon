@@ -8,11 +8,8 @@
 //!
 //! The first entry must be a Version entry (type 0x6532, length 0).
 
-use crate::error::E2StoreError;
+use crate::{error::E2StoreError, format::types::TYPE_VERSION};
 use std::io::{self, Read, Seek};
-
-/// Version entry — must be the first entry in every e2store file.
-pub const TYPE_VERSION: [u8; 2] = [0x65, 0x32];
 
 /// e2store 8-byte entry header.
 ///

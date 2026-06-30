@@ -138,8 +138,8 @@ fn compress_into(data: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::format::era::{SlotIndex, TYPE_COMPRESSED_SIGNED_BEACON_BLOCK, TYPE_SLOT_INDEX};
-    use crate::format::era1::*;
+    use crate::format::era::SlotIndex;
+    use crate::format::types::*;
     use crate::verify::verify_era;
     use crate::{format::Entry, write::E2StoreWriter};
     use snap::write::FrameEncoder;
@@ -160,7 +160,7 @@ mod tests {
         // Slot 100
         w.write_entry(&Entry::new(TYPE_COMPRESSED_HEADER, compress(&[0x64])))
             .unwrap();
-        w.write_entry(&Entry::new(TYPE_BLOCK_BODY, vec![0x01]))
+        w.write_entry(&Entry::new(TYPE_COMPRESSED_BODY, vec![0x01]))
             .unwrap();
         let mut td = [0u8; 32];
         td[31] = 100;
@@ -170,7 +170,7 @@ mod tests {
         // Slot 102 (101 skipped)
         w.write_entry(&Entry::new(TYPE_COMPRESSED_HEADER, compress(&[0x66])))
             .unwrap();
-        w.write_entry(&Entry::new(TYPE_BLOCK_BODY, vec![0x02]))
+        w.write_entry(&Entry::new(TYPE_COMPRESSED_BODY, vec![0x02]))
             .unwrap();
         let mut td2 = [0u8; 32];
         td2[31] = 102;
