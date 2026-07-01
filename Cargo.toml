@@ -1,6 +1,7 @@
 [package]
 name = "brandon"
 version = "0.1.0"
+rust-version = "1.88"
 edition = "2024"
 description = "Standalone Rust toolkit for Ethereum ERA/ERA1 files — read, write, verify, convert"
 license = "MIT OR Apache-2.0"
