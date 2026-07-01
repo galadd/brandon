@@ -68,9 +68,8 @@ where
 
     while let Some(entry) = e2s.next_entry().map_err(Error::Io)? {
         // Always skip old indexes - we write new ones at the end
-        match entry.header.typ {
-            TYPE_SLOT_INDEX => continue,
-            _ => {}
+        if entry.header.typ == TYPE_SLOT_INDEX {
+            continue;
         }
 
         if !filter(&entry.header.typ) {
@@ -127,9 +126,8 @@ fn extract_index_metadata<R: Read + Seek>(
     {
         let mut scanner = E2StoreReader::new(&mut *reader);
         while let Some(header) = scanner.next_header_skip().map_err(Error::Io)? {
-            match header.typ {
-                TYPE_SLOT_INDEX => index_positions.push(pos),
-                _ => {}
+            if header.typ == TYPE_SLOT_INDEX {
+                index_positions.push(pos)
             }
             pos += 8 + header.length as u64;
         }

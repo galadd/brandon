@@ -378,7 +378,7 @@ fn run_dir_stream(
 ) -> anyhow::Result<()> {
     match count {
         Some(limit) => {
-            for (_, path) in &dir.files {
+            if let Some((_, path)) = dir.files.first() {
                 run_single_file(ReadArgs {
                     path: path.to_string_lossy().into_owned(),
                     slot: None,
@@ -389,7 +389,6 @@ fn run_dir_stream(
                     output: None,
                     output_dir: output_dir.map(str::to_owned),
                 })?;
-                break;
             }
         }
         None => {
