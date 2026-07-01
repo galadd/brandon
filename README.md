@@ -1,6 +1,14 @@
 # Brandon
 
-Standalone Rust toolkit for Ethereum ERA/ERA1 archive files.
+Standalone Rust toolkit for Ethereum ERA/ERA1 archives.
+
+✓ Read and stream ERA files  
+✓ Random-access blocks by slot  
+✓ Build new ERA archives  
+✓ Verify archive integrity  
+✓ Convert between archive layouts  
+✓ Zero-copy block iteration  
+✓ Works across Ethereum client implementations  
 
 ```
 $ brandon info mainnet-00000-5ec1ffb8.era1
