@@ -104,8 +104,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-# brandon = "0.1"
-brandon = { path = "../path/to/brandon" }
+brandon = "0.1"
 ```
 
 ### Read a file
