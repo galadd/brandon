@@ -349,6 +349,113 @@ impl Block {
             Block::Era1(b) => b.header.len() + b.body.len() + b.receipts.len() + 32,
         }
     }
+
+    /// Create a block from raw bytes, bypassing decompression.
+    fn from_raw(typ: &[u8; 2], data: Vec<u8>) -> Self {
+        match *typ {
+            TYPE_COMPRESSED_SIGNED_BEACON_BLOCK => Block::Era(EraBlock { block: data }),
+            TYPE_COMPRESSED_HEADER | TYPE_COMPRESSED_HEADER_WITH_PROOF => Block::Era1(Era1Block {
+                header: data,
+                body: Vec::new(),
+                receipts: Vec::new(),
+                total_difficulty: U256::zero(),
+            }),
+            _ => Block::Era(EraBlock { block: data }),
+        }
+    }
+}
+
+/// Iterate over blocks in raw file bytes without allocating `Entry` structs.
+///
+/// This is a fast way to process a file that's already in memory
+/// (e.g., fetched over HTTP or mapped). It locates the block index,
+/// resolves offsets, and yields raw compressed block data.
+///
+/// # Example
+///
+/// ```ignore
+/// let data = std::fs::read("file.era1")?;
+/// for block in iter_blocks(&data)? {
+///     println!("block at offset: {} bytes", block.primary_data().len());
+/// }
+/// ```
+pub fn iter_blocks(data: &[u8]) -> Result<impl Iterator<Item = Block> + '_, Error> {
+    // Find the last SlotIndex or BlockIndex
+    let mut pos = 0u64;
+    let mut index_pos = None;
+    let mut index_typ = [0u8; 2];
+
+    while pos < data.len() as u64 {
+        if pos + 8 > data.len() as u64 {
+            break;
+        }
+        let typ = [data[pos as usize], data[pos as usize + 1]];
+        let length = u32::from_le_bytes(
+            data[pos as usize + 2..pos as usize + 6]
+                .try_into()
+                .map_err(|_| Error::E2Store(E2StoreError::TruncatedHeader(0)))?,
+        );
+        let entry_end = pos + 8 + length as u64;
+
+        if typ == TYPE_SLOT_INDEX || typ == TYPE_BLOCK_INDEX {
+            index_pos = Some(pos);
+            index_typ = typ;
+        }
+
+        pos = entry_end;
+    }
+
+    let (idx_pos, idx_typ) = index_pos
+        .zip(Some(index_typ))
+        .ok_or(Error::E2Store(E2StoreError::MissingVersion))?;
+
+    let idx_data = &data[idx_pos as usize + 8..];
+    let idx =
+        SlotIndex::decode(idx_data).map_err(|e| Error::E2Store(E2StoreError::InvalidEra(e)))?;
+
+    let is_era1 = idx_typ == TYPE_BLOCK_INDEX;
+
+    let offsets = idx.offsets;
+
+    let mut slot_i = 0usize;
+    Ok(std::iter::from_fn(move || {
+        while slot_i < offsets.len() {
+            let offset = offsets[slot_i];
+            slot_i += 1;
+
+            if offset == 0 {
+                continue;
+            }
+
+            let abs = (idx_pos as i64 + offset) as u64;
+
+            if abs + 8 > data.len() as u64 {
+                continue;
+            }
+
+            let bytes: [u8; 4] = data[abs as usize + 2..abs as usize + 6].try_into().ok()?;
+
+            let entry_len = u32::from_le_bytes(bytes);
+            let entry_end = (abs + 8 + entry_len as u64) as usize;
+
+            if entry_end > data.len() {
+                continue;
+            }
+
+            let block_data = data[abs as usize + 8..entry_end].to_vec();
+
+            let typ = if is_era1 {
+                TYPE_COMPRESSED_HEADER
+            } else {
+                TYPE_COMPRESSED_SIGNED_BEACON_BLOCK
+            };
+
+            return Some(Block::from_raw(&typ, block_data));
+        }
+
+        None
+    })
+    .fuse())
 }
 
 /// Block-level reader that assembles related entries into complete blocks.
