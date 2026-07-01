@@ -6,6 +6,8 @@ edition = "2024"
 description = "Standalone Rust toolkit for Ethereum ERA/ERA1 files — read, write, verify, convert"
 license = "MIT OR Apache-2.0"
 keywords = ["ethereum", "era", "e2store", "archive"]
+# documentation = "https://docs.rs/brandon"
+repository = "https://github.com/galadd/brandon"
 
 [dependencies]
 snap = "1.1.1"
