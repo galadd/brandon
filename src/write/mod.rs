@@ -12,7 +12,7 @@ use crate::format::types::*;
 
 /// Writes e2store entries to any `Write` sink.
 ///
-/// Each entry is written as its 8-byte header (via [`Header::encode`])
+/// Each entry is written as its 8-byte header (via `Header::encode`)
 /// followed by the entry data payload.
 pub struct E2StoreWriter<W: Write> {
     writer: W,
@@ -26,7 +26,7 @@ impl<W: Write> E2StoreWriter<W> {
     /// Write a single entry.
     ///
     /// Uses `Header::encode()` which writes the full 8-byte header
-    /// (type[2] + length[4] + reserved[2]), then the data.
+    /// (`type[2] | length[4] | reserved[2]`), then the data.
     pub fn write_entry(&mut self, entry: &Entry) -> Result<()> {
         self.writer.write_all(&entry.header.encode())?;
         self.writer.write_all(&entry.data)?;

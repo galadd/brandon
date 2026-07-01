@@ -11,7 +11,7 @@
 //! | Block groups | ERA1 blocks have complete header+body+td before next block |
 //! | Cross-reference | State present ↔ state index present, state index points to state |
 //!
-//! SHA256 manifest verification is in the [`hash`](self::hash) submodule.
+//! SHA256 manifest verification is in the [`hash`] submodule.
 
 pub mod hash;
 

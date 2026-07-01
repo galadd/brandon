@@ -1,7 +1,7 @@
 //! Central registry for all e2store type codes.
 //!
 //! Based on the official e2store format specifications.
-//! https://github.com/eth-clients/e2store-format-specs
+//! <https://github.com/eth-clients/e2store-format-specs>
 
 // ── Generic e2store ──────────────────────────────────────────────
 

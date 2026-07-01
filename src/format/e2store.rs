@@ -3,7 +3,7 @@
 //! Spec: <https://github.com/eth-clients/e2store-format-specs>
 //!
 //! An e2store file is a sequence of entries. Each entry is:
-//!   - 8-byte header: type[2] | length[4 LE] | reserved[2] (=0)
+//!   - 8-byte header: `type[2] | length[4 LE] | reserved[2] (=0)`
 //!   - `length` bytes of data
 //!
 //! The first entry must be a Version entry (type 0x6532, length 0).

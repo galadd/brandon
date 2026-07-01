@@ -18,7 +18,7 @@
 //! forks (Bellatrix, Capella, Deneb, etc.), Brandon delegates this to
 //! your consensus library of choice.
 //!
-//! Use [`era1_to~era`] to handle all e2store indexing, compression, and
+//! Use [`era1_to_era`] to handle all e2store indexing, compression, and
 //! file layout while you provide a closure that returns the SSZ bytes.
 //!
 //! ## Example
