@@ -984,7 +984,7 @@ mod tests {
         // Fix the offset: it should be relative to the index position
         // The header entry is at byte 8, the index is at idx_offset
         // So relative offset = 8 - idx_offset (negative)
-        let correct_offset = (8i64 - idx_offset) as i64;
+        let correct_offset = 8i64 - idx_offset;
         let fixed_index = SlotIndex::new(0, vec![correct_offset]);
         // Rebuild with correct offset
         buf.truncate(idx_offset as usize);
