@@ -48,7 +48,7 @@ impl std::fmt::Display for InfoResult {
         // Find the longest name for allignment
         let max_name = self.entries.keys().map(|k| k.len()).max().unwrap_or(0);
         for (name, count) in &self.entries {
-            writeln!(f, "  {:<width$} {}", name, count, width = max_name)?;
+            writeln!(f, "  {name:<max_name$} {count}")?;
         }
         Ok(())
     }

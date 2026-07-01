@@ -621,7 +621,7 @@ impl std::fmt::Display for SlotLookupError {
         match self {
             SlotLookupError::EmptySlot => write!(f, "no block at this slot (skipped)"),
             SlotLookupError::OutOfRange { slot, start, end } => {
-                write!(f, "slot {} outside index range [{}, {}]", slot, start, end)
+                write!(f, "slot {slot} outside index range [{start}, {end}]")
             }
             SlotLookupError::IndexNotFound => write!(f, "block index not found in file"),
         }

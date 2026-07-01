@@ -66,7 +66,7 @@ pub fn verify_file_against_manifest(file: &Path, manifest: &Path) -> Result<bool
         .to_string_lossy();
 
     let expected_hash = manifest_map.get(file_name.as_ref()).ok_or_else(|| {
-        E2StoreError::InvalidManifest(format!("file {} not in manifest", file_name))
+        E2StoreError::InvalidManifest(format!("file {file_name} not in manifest"))
     })?;
 
     let actual_hash = sha256_file(file)?;
