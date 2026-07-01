@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} • Rust ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        toolchain:
+          - "1.88.0"
+          - stable
+          - nightly
+
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Cache ERA fixtures
+        uses: actions/cache@v4
+        with:
+          path: tests/fixtures
+          key: era-fixtures-v1
+
+      - name: Download fixtures (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p tests/fixtures
+
+          if [ ! -f tests/fixtures/mainnet-00090-56a5eb95.era ]; then
+            curl -L \
+              https://mainnet.era.nimbus.team/mainnet-00090-56a5eb95.era \
+              -o tests/fixtures/mainnet-00090-56a5eb95.era
+          fi
+
+      - name: Download fixtures (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force tests/fixtures | Out-Null
+
+          if (!(Test-Path "tests/fixtures/mainnet-00090-56a5eb95.era")) {
+            Invoke-WebRequest `
+              -Uri "https://mainnet.era.nimbus.team/mainnet-00090-56a5eb95.era" `
+              -OutFile "tests/fixtures/mainnet-00090-56a5eb95.era"
+          }
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --workspace --all-features
+
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --all-features --no-deps
+
+      - name: Publish check
+        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable'
+        run: cargo publish --dry-run
